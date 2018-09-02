@@ -1,8 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using System.IO;
 using System.Threading;
 
@@ -11,8 +8,8 @@ namespace Linapl.SystemMonitoring.FolderMonitoring
     public class FolderMonitor
     {
         private string _path;
-        public bool _isMonitoring;
-        private Dictionary<string, bool> _previousFolderState = new Dictionary<string, bool>();
+        public bool IsMonitoring;
+        private HashSet<string> _previousFolderState;
 
         public FolderMonitor(string path)
         {
@@ -20,6 +17,7 @@ namespace Linapl.SystemMonitoring.FolderMonitoring
             {
                 throw new ArgumentNullException();
             }
+
             if (!Directory.Exists(path))
             {
                 throw new DirectoryNotFoundException();
@@ -30,20 +28,23 @@ namespace Linapl.SystemMonitoring.FolderMonitoring
 
         public void Monitoring()
         {
-            while (_isMonitoring)
+            while (true)
             {
-                TrackChanges();
-                Thread.Sleep(10000);
-                Console.WriteLine("\n10 second\n");
+                if (IsMonitoring)
+                {
+                    TrackChanges();
+                    Thread.Sleep(1000);
+                    Console.WriteLine("\n1 second\n");
+                }
             }
         }
 
         public void TrackChanges()
         {
             var _latestFolderState = GetFolderState();
-            var _deleteFolder = CheckChanges(_previousFolderState, _latestFolderState);
-            var _addedFoulder = CheckChanges(_latestFolderState, _previousFolderState);
-
+            var _deleteFolder = CheckChanges( new HashSet<string>(_previousFolderState), new HashSet<string>( _latestFolderState));
+            var _addedFoulder = CheckChanges(new HashSet<string>(_latestFolderState), new HashSet<string>(_previousFolderState));
+            
             foreach (var s in _deleteFolder)
             {
                 Console.WriteLine($"the foulder {s} was deleted! ");
@@ -53,30 +54,28 @@ namespace Linapl.SystemMonitoring.FolderMonitoring
             {
                 Console.WriteLine($"the foulder {s} was added! ");
             }
+
             _previousFolderState = _latestFolderState;
+            _deleteFolder.Clear();
+            _addedFoulder.Clear();
         }
 
-        public Dictionary<string, bool> GetFolderState()
+        public HashSet<string> GetFolderState()
         {
-            var lst = Directory.EnumerateDirectories(_path)
-                .ToDictionary(i => i, i => false);
-            return lst;
-        }
+            var lst = Directory.EnumerateDirectories(_path);
+            HashSet<string> ret = new HashSet<string>();
 
-        public List<string> CheckChanges(Dictionary<string, bool> dict1, Dictionary<string, bool> dict2)
-        {
-            List<string> lst = new List<string>();
-            foreach (var s in dict1)
+            foreach(var s in lst)
             {
-                if (!dict2.TryGetValue(s.Key, out var folderName))
-                {
-                    lst.Add(s.Key.ToString());
-                }
+                ret.Add(s);
             }
-            return lst;
+            return ret;
+        }
+
+        public HashSet<string> CheckChanges(HashSet<string> dict1, HashSet<string> dict2)
+        {
+            dict1.ExceptWith(dict2);
+            return dict1;
         }
     }
 }
-// 1. Получить список файлов и папок внутри указанной папки
-// 2. Сохранение полученного списка
-// 3. Сравнение двух списков
